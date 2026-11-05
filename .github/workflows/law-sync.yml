@@ -39,7 +39,14 @@ jobs:
       - name: 법령·조례 받기
         env:
           LAW_OC: ${{ secrets.LAW_OC }}
-        run: node scripts/sync.mjs
+        run: |
+          if [ -z "$LAW_OC" ]; then echo "::error::LAW_OC(국가법령정보 API 인증값)가 등록되지 않아 갱신하지 않습니다"; exit 1; fi
+          node scripts/sync.mjs
+      - name: 받은 자료 확인 (지자체 수가 크게 줄면 올리지 않음)
+        run: |
+          n=$(node -e "console.log(require('./data/regions.json').count||0)")
+          echo "지자체 $n 곳"
+          if [ "$n" -lt 200 ]; then echo "::error::받은 지자체 수가 너무 적어($n) 올리지 않습니다"; exit 1; fi
       - name: 파일로 열기용 사본(.js) 만들기
         run: python3 scripts/make-file-data.py
       - name: 바뀐 내용 올리기
