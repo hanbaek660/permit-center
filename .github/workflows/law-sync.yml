@@ -1,0 +1,82 @@
+# 가상인허가센터: 법규 자동 갱신 + 사이트 게시
+# - 매주 월요일 06:00(한국 시간)에 국가법령정보에서 법령·조례를 받아 data/ 를 갱신하고 저장소에 올린다
+# - 법령이 바뀌었거나 자동 검증값이 어긋나면 저장소 Issues 에 알림 글을 남긴다
+# - 사람이 파일을 고쳐 올렸을 때(push)도 사이트를 다시 게시한다
+# 준비 (저장소 설정에서 한 번만):
+#   1. Settings > Secrets and variables > Actions 에 LAW_OC 등록 (국가법령정보 공동활용 OPEN API 인증값)
+#   2. Settings > Pages > Source 를 "GitHub Actions" 로
+# 저장소 맨 위 = permit-center 폴더 안 내용 (index.html, app.js, data/, scripts/ ...)
+
+name: 법규 갱신·게시
+
+on:
+  schedule:
+    - cron: "0 21 * * 0"   # UTC 일요일 21:00 = 한국 월요일 06:00
+  workflow_dispatch:         # Actions 화면에서 [Run workflow] 로 바로 실행
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  issues: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: law-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: 법령·조례 받기
+        env:
+          LAW_OC: ${{ secrets.LAW_OC }}
+        run: node scripts/sync.mjs
+      - name: 파일로 열기용 사본(.js) 만들기
+        run: python3 scripts/make-file-data.py
+      - name: 바뀐 내용 올리기
+        run: |
+          git config user.name "law-sync"
+          git config user.email "law-sync@users.noreply.github.com"
+          git add data
+          if git diff --cached --quiet; then
+            echo "바뀐 법규 없음"
+          else
+            git commit -m "법규 자동 갱신 $(TZ=Asia/Seoul date +%F)"
+            git push
+          fi
+      - name: 변경 알림 글 남기기
+        if: hashFiles('scripts/issue.md') != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh issue create --title "법규 변경 감지 $(TZ=Asia/Seoul date +%F)" --body-file scripts/issue.md
+
+  deploy:
+    needs: sync
+    if: always() && (needs.sync.result == 'success' || needs.sync.result == 'skipped')
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: 게시 파일 고르기 (스크립트·설정 폴더 제외)
+        run: |
+          mkdir -p _site
+          cp -r index.html app.js admin.js rules.js data config _site/
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4
