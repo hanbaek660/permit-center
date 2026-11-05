@@ -1049,6 +1049,9 @@ document.addEventListener('DOMContentLoaded', function () {
     D.regions = a[0]; D.national = a[1]; D.meta = a[2];
     $('#syncDate').textContent = D.meta ? D.meta.updated : '동기화 전';
     if ($('#syncDate2')) $('#syncDate2').textContent = D.meta ? D.meta.updated : '불러오지 못함';
+    // 기준일이 14일 넘게 지났으면 (자동 갱신이 멈춘 것) 경고로 바꾼다
+    var age = D.meta && D.meta.updated ? (Date.now() - Date.parse(D.meta.updated)) / 864e5 : 999;
+    if ($('#ageMsg') && age > 14) { $('#ageMsg').innerHTML = '<b>자동 갱신이 ' + Math.floor(age) + '일째 멈춰 있어 이후 개정된 지자체 조례·법령은 반영되지 않았을 수 있습니다.</b>'; $('#data-age').style.background = '#fdecee'; }
     if ((!D.regions || !D.national) && $('#file-warn')) $('#file-warn').style.display = 'block';
     ensureDetail(cur().p); renderAll();
   });
