@@ -32,10 +32,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 22
       - name: 법령·조례 받기
         env:
           LAW_OC: ${{ secrets.LAW_OC }}
@@ -74,7 +74,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: main
       - name: 게시 파일 고르기 (스크립트·설정 폴더 제외)
@@ -82,7 +82,7 @@ jobs:
           mkdir -p _site
           cp -r index.html app.js admin.js rules.js data config _site/
       - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v4
         with:
           path: _site
       - id: deployment
